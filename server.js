@@ -1,6 +1,8 @@
 import * as fsp from "fs/promises";
 
 import express from "express";
+import { writeFile } from "fs";
+import { stringify } from "querystring";
 
 // function readMyFile(filename) {
 //   fsp.readFile(filename, "utf8")
@@ -36,6 +38,7 @@ function getMaxId(arr) {
   return max;
 }
 
+// get all products
 app.get("/products", (req, res) => {
   fsp.readFile("./products.json", "utf8").then((data) => {
     const json = JSON.parse(data);
@@ -43,6 +46,7 @@ app.get("/products", (req, res) => {
   });
 });
 
+// get product by id
 app.get("/products/:id", (req, res) => {
   const { id } = req.params;
   fsp.readFile("./products.json", "utf8").then((data) => {
@@ -57,18 +61,74 @@ app.get("/products/:id", (req, res) => {
   });
 });
 
+// post new product
 app.use(express.json());
 app.post("/products", (req, res) => {
   console.log(req.body);
   fsp.readFile("./products.json", "utf8").then((data) => {
     const jsonArray = JSON.parse(data);
-    console.log(jsonArray);
+
     jsonArray.push({
       id: getMaxId(jsonArray) + 1,
       title: req.body.title,
       completed: false,
     });
-    res.send(jsonArray);
+    fsp.writeFile("./products.json", JSON.stringify(jsonArray)).then(() => {
+      res.send(jsonArray);
+    });
+  });
+});
+
+// update product by id
+app.patch("/products/:id", (req, res) => {
+  const { id } = req.params;
+  fsp.readFile("./products.json", "utf8").then((data) => {
+    if (req.body) {
+      const product = JSON.parse(data);
+      const productIndex = product.findIndex((obj) => obj.id === +id);
+      product[productIndex] = { ...product[productIndex], ...req.body };
+      fsp
+        .writeFile("./products.json", JSON.stringify(product))
+        .then(() => {
+          res.send(product);
+        })
+        .catch((err) => console.log(error));
+    }
+  });
+});
+
+// delete product by id
+app.delete("/products/:id", (req, res) => {
+  const { id } = req.params;
+  fsp.readFile("./products.json", "utf8").then((data) => {
+    const product = JSON.parse(data);
+    const productIndex = product.findIndex((obj) => obj.id === +id);
+    if (productIndex >= 0) {
+      product.splice(productIndex, 1);
+      fsp
+        .writeFile("./products.json", JSON.stringify(product))
+        .then(() => {
+          res.send(product);
+        })
+        .catch((err) => console.log(error));
+    } else {
+      res.send(product);
+    }
+  });
+});
+
+// get product by title
+app.get("/products", (req, res) => {
+  fsp.readFile("./products.json", "utf8").then((data) => {
+    const products = JSON.parse(data);
+    if (req.query) {
+      const { title } = req.query;
+      const filteredProducts = products.filter((product) =>
+        product.title.toLowerCase().includes(title.toLowerCase())
+      );
+      res.send(filteredProducts);
+    }
+    res.send(products);
   });
 });
 
